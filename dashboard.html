@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Loaves & Fishes - Security Dashboard</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: #0e1a2b;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    header {
+      background-color: #142a47;
+      padding: 1rem;
+      text-align: center;
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+
+    nav {
+      display: flex;
+      background-color: #1b3555;
+    }
+
+    nav button {
+      flex: 1;
+      padding: 1rem;
+      background: none;
+      border: none;
+      color: white;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+
+    nav button.active {
+      background-color: #25476b;
+    }
+
+    main {
+      flex: 1;
+      padding: 1rem;
+      overflow-y: auto;
+    }
+
+    .page {
+      display: none;
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    form {
+      margin-bottom: 1rem;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 0.5rem;
+      margin-top: 0.5rem;
+      margin-bottom: 1rem;
+      border: none;
+      border-radius: 4px;
+    }
+
+    button[type="submit"] {
+      background-color: #25476b;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+
+    .list-item {
+      background-color: #1b3555;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      border-radius: 6px;
+      position: relative;
+    }
+
+    .list-item button.delete-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background-color: #b33a3a;
+      border: none;
+      color: white;
+      padding: 0.3rem 0.6rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+
+    .notification {
+      position: fixed;
+      bottom: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #25476b;
+      color: white;
+      padding: 1rem 2rem;
+      border-radius: 5px;
+      display: none;
+      z-index: 100;
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateX(-50%) translateY(50px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes fadeOut {
+      from {
+        opacity: 1;
+      }
+      to {
+        opacity: 0;
+      }
+    }
+
+    @media (max-width: 600px) {
+      nav button {
+        font-size: 0.9rem;
+        padding: 0.7rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>Loaves & Fishes Security Dashboard</header>
+
+  <nav>
+    <button data-tab="reports" class="active">Security Reports</button>
+    <button data-tab="curfew">Curfew</button>
+    <button data-tab="donations">Donations</button>
+  </nav>
+
+  <main>
+    <div id="reports" class="page active">
+      <form id="reportForm">
+        <label>Title</label>
+        <input type="text" id="reportTitle" required />
+        <label>Details</label>
+        <textarea id="reportDetails" rows="4" required></textarea>
+        <button type="submit">Submit Report</button>
+      </form>
+      <div id="reportList"></div>
+    </div>
+
+    <div id="curfew" class="page">
+      <form id="curfewForm">
+        <label>Curfew Time (HH:MM AM/PM)</label>
+        <input type="time" id="curfewTime" required />
+        <button type="submit">Set Curfew</button>
+      </form>
+      <p id="curfewInfo">No curfew time set yet.</p>
+    </div>
+
+    <div id="donations" class="page">
+      <form id="donationForm">
+        <label>Donation Item</label>
+        <input type="text" id="donationItem" required />
+        <label>Donation Date & Time</label>
+        <input type="datetime-local" id="donationDateTime" required />
+        <button type="submit">Add Donation</button>
+      </form>
+      <div id="donationList"></div>
+    </div>
+  </main>
+
+  <div class="notification" id="notification"></div>
+
+  <script>
+    const navButtons = document.querySelectorAll("nav button");
+    const pages = document.querySelectorAll(".page");
+
+    navButtons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        navButtons.forEach((b) => b.classList.remove("active"));
+        pages.forEach((p) => p.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById(btn.dataset.tab).classList.add("active");
+      });
+    });
+
+    function showNotification(message) {
+      const note = document.getElementById("notification");
+      note.textContent = message;
+      note.style.display = "block";
+      note.style.animation = "slideIn 0.5s forwards";
+
+      setTimeout(() => {
+        note.style.animation = "fadeOut 0.5s forwards";
+      }, 2500);
+
+      setTimeout(() => {
+        note.style.display = "none";
+      }, 3000);
+    }
+
+    // ===== SECURITY REPORTS =====
+    const reportForm = document.getElementById("reportForm");
+    const reportList = document.getElementById("reportList");
+
+    let reports = JSON.parse(localStorage.getItem("securityReports")) || [];
+
+    function renderReports() {
+      localStorage.setItem("securityReports", JSON.stringify(reports));
+      reportList.innerHTML = reports.length
+        ? reports
+            .map(
+              (r, i) => `
+          <div class="list-item">
+            <strong>${r.title}</strong> <em>(${new Date(r.time).toLocaleString()})</em>
+            <p>${r.details}</p>
+            <button class="delete-btn" data-index="${i}">Delete</button>
+          </div>`
+            )
+            .join("")
+        : "<p>No reports yet.</p>";
+
+      // Add event listeners to delete buttons
+      document.querySelectorAll("#reportList .delete-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const idx = Number(btn.dataset.index);
+          reports.splice(idx, 1);
+          renderReports();
+          showNotification("Security report deleted!");
+        });
+      });
+    }
+
+    reportForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const title = reportForm.reportTitle.value.trim();
+      const details = reportForm.reportDetails.value.trim();
+      if (title && details) {
+        reports.unshift({ title, details, time: Date.now() });
+        renderReports();
+        reportForm.reset();
+        showNotification("Security report added!");
+      }
+    });
+    renderReports();
+
+    // ===== CURFEW =====
+    const curfewForm = document.getElementById("curfewForm");
+    const curfewInfo = document.getElementById("curfewInfo");
+
+    function loadCurfew() {
+      const time = localStorage.getItem("curfewTime");
+      if (time) {
+        curfewInfo.textContent = `Curfew is set at ${time}.`;
+        document.getElementById("curfewTime").value = time;
+      }
+    }
+
+    curfewForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const time = document.getElementById("curfewTime").value;
+      localStorage.setItem("curfewTime", time);
+      curfewInfo.textContent = `Curfew is set at ${time}.`;
+      showNotification("Curfew time updated!");
+    });
+    loadCurfew();
+
+    // ===== DONATIONS =====
+    const donationForm = document.getElementById("donationForm");
+    const donationList = document.getElementById("donationList");
+
+    let donations = JSON.parse(localStorage.getItem("donations")) || [];
+
+    function renderDonations() {
+      localStorage.setItem("donations", JSON.stringify(donations));
+      donationList.innerHTML = donations.length
+        ? donations
+            .map(
+              (d, i) => `
+          <div class="list-item">
+            <strong>${d.item}</strong> <em>(${new Date(d.date).toLocaleString()})</em>
+            <button class="delete-btn" data-index="${i}">Delete</button>
+          </div>`
+            )
+            .join("")
+        : "<p>No donations recorded yet.</p>";
+
+      // Add event listeners to delete buttons
+      document.querySelectorAll("#donationList .delete-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const idx = Number(btn.dataset.index);
+          donations.splice(idx, 1);
+          renderDonations();
+          showNotification("Donation deleted!");
+        });
+      });
+    }
+
+    donationForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const item = donationForm.donationItem.value.trim();
+      const date = donationForm.donationDateTime.value;
+      if (item && date) {
+        donations.unshift({ item, date: new Date(date).toISOString() });
+        renderDonations();
+        donationForm.reset();
+        showNotification("Donation added!");
+      }
+    });
+    renderDonations();
+  </script>
+</body>
+</html>
